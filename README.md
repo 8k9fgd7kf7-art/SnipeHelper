@@ -16,13 +16,15 @@ Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die 
 - weltbezogene Speicherung der Einstellungen
 - Schutz vor doppeltem Start und mehrfachen Ereignis-Listenern
 - verständliche Status- und Fehlermeldungen
+- Synchronisation auf 1 Sekunde vorher, gleichzeitig oder 1 Sekunde später
+- bewusst schaltbares Auto-Senden mit Abbruchmöglichkeit
 
 ## Installation in der Schnellleiste
 
 Den folgenden vollständigen Code als Schnellleisten-Script eintragen:
 
 ```javascript
-javascript:window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.0.2.js").fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")});
+javascript:window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.1.0.js").fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")});
 ```
 
 Alternativ steht derselbe Loader lesbar in [loader.js](loader.js).
@@ -57,4 +59,4 @@ Bei `breite: null` passt sich die Oberfläche automatisch an. Alternativ kann ei
 
 ## Version
 
-Aktuell: **2.0.2**
+Aktuell: **2.1.0**
