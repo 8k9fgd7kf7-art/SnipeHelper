@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.0.2
+ * Die Stämme – Snipe-Helfer v2.1.0
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet nicht automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.0.2';
+    const VERSION = '2.1.0';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
@@ -36,6 +36,9 @@
         remember: false,
         duration: 0,
         timer: null,
+        autoTimer: null,
+        autoSendArmed: false,
+        autoSent: false,
         observer: null,
         active: false,
         soundPlayed: false,
@@ -168,6 +171,59 @@
         return target === null ? null : target - state.duration;
     }
 
+    function disarmAutoSend(message = '') {
+        state.autoSendArmed = false;
+        state.autoSent = false;
+        if (state.autoTimer) clearTimeout(state.autoTimer);
+        state.autoTimer = null;
+        const button = document.querySelector('#sh-auto-send');
+        if (button) {
+            button.classList.remove('armed');
+            button.textContent = 'Auto-Senden vorbereiten';
+        }
+        if (message) setStatus(message);
+    }
+
+    function performAutoSend() {
+        if (!state.autoSendArmed || state.autoSent) return;
+        const submit = document.getElementById('troop_confirm_submit');
+        if (!submit || submit.disabled) {
+            disarmAutoSend();
+            setStatus('Auto-Senden abgebrochen: Der Bestätigen-Button ist nicht verfügbar.', 'error');
+            return;
+        }
+        state.autoSent = true;
+        state.autoSendArmed = false;
+        console.log(`[Snipe-Helfer] Automatisch ausgelöst bei ${Math.round(serverNow()) % 1000} ms Serverzeit.`);
+        setStatus('Angriff wurde automatisch ausgelöst.', 'ok');
+        submit.click();
+    }
+
+    function scheduleAutoSend() {
+        if (state.autoTimer) clearTimeout(state.autoTimer);
+        const check = () => {
+            if (!state.autoSendArmed) return;
+            const send = sendTimestamp();
+            const remaining = send === null ? Number.NaN : send - serverNow();
+            if (!Number.isFinite(remaining)) {
+                disarmAutoSend();
+                setStatus('Auto-Senden abgebrochen: keine gültige Absendezeit.', 'error');
+                return;
+            }
+            if (remaining <= 0) {
+                if (remaining >= -1000) performAutoSend();
+                else {
+                    disarmAutoSend();
+                    setStatus('Auto-Senden abgebrochen: Der Absendezeitpunkt ist bereits vorbei.', 'error');
+                }
+                return;
+            }
+            const nextCheck = remaining > 2000 ? remaining - 1500 : Math.max(1, Math.min(20, remaining / 2));
+            state.autoTimer = setTimeout(check, nextCheck);
+        };
+        check();
+    }
+
     function setTarget(timestamp, source = '') {
         if (!Number.isFinite(timestamp)) {
             notify('Die Ankunftszeit konnte nicht erkannt werden.', 'ErrorMessage');
@@ -176,6 +232,7 @@
         const date = new Date(timestamp);
         state.targetTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds(), 0).getTime();
         state.milliseconds = date.getMilliseconds();
+        disarmAutoSend();
         const timeInput = document.querySelector('#sh-target');
         const msInput = document.querySelector('#sh-ms');
         if (timeInput) timeInput.value = toLocalInput(state.targetTime);
@@ -253,9 +310,14 @@
             #${ROOT_ID} .sh-countdown{margin-top:9px;padding:9px;border-radius:4px;text-align:center;font-size:15px;font-weight:700}
             #${ROOT_ID} .sh-countdown.waiting{background:#fff0cb;color:#865308}.sh-countdown.ready{background:#d8f0d6;color:#145c19}.sh-countdown.late{background:#f6d3cf;color:#9c1710}.sh-countdown.neutral{background:#e7dfcc;color:#66573e}
             #${ROOT_ID} .sh-options{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px}
+            #${ROOT_ID} .sh-sync{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding:8px;border:1px solid #c6aa75;border-radius:4px;background:#fff8e8}
+            #${ROOT_ID} .sh-sync strong{margin-right:3px}
+            #${ROOT_ID} .sh-sync button{min-height:30px;padding:4px 9px;color:#4b3214;background:linear-gradient(#fff5d8,#d8bd83)}
             #${ROOT_ID} .sh-check{display:flex;flex-direction:row;align-items:center;gap:6px;font-weight:400}#${ROOT_ID} .sh-check input{flex:0 0 18px;width:18px;height:18px;min-height:0;padding:0}
             #${ROOT_ID} button{min-height:34px;border:1px solid #654315;border-radius:4px;background:linear-gradient(#d7b36c,#aa762e);color:#fff;padding:6px 12px;font-weight:700;cursor:pointer;touch-action:manipulation}
             #${ROOT_ID} button:hover{filter:brightness(1.08)}
+            #${ROOT_ID} #sh-auto-send{background:linear-gradient(#6d8c3d,#45651e)}
+            #${ROOT_ID} #sh-auto-send.armed{background:linear-gradient(#c83f32,#8e1f16);box-shadow:0 0 0 2px rgba(153,25,18,.18)}
             #${ROOT_ID} .sh-status{margin-top:7px;min-height:16px;color:#70552e}.sh-status.ok{color:#246b28}.sh-status.error{color:#a01912}
             #${ROOT_ID} .sh-commands{margin-top:10px;max-height:250px;overflow:auto;border-radius:4px}
             #${ROOT_ID} .sh-commands table{width:100%;border-collapse:collapse;background:#fff8e8}
@@ -279,6 +341,7 @@
                     <label>Millisekunden<input id="sh-ms" type="number" min="0" max="999" step="1" inputmode="numeric"></label>
                     <label>Korrektur (ms)<input id="sh-delay" type="number" min="-9999" max="9999" step="1" inputmode="numeric"></label>
                 </div>
+                <div class="sh-sync"><strong>Ankunft relativ zum gewählten Angriff:</strong><button type="button" data-sh-offset="-1000">1 s vorher</button><button type="button" data-sh-offset="0">Gleichzeitig</button><button type="button" data-sh-offset="1000">1 s später</button></div>
                 <div class="sh-summary">
                     <div class="sh-card"><span>Effektive Ankunft</span><strong id="sh-effective-target">—</strong></div>
                     <div class="sh-card"><span>Absendezeit</span><strong id="sh-send-time">—</strong></div>
@@ -288,6 +351,7 @@
                     <label class="sh-check"><input id="sh-remember" type="checkbox"> Eingaben merken</label>
                     <button id="sh-clear" type="button">Zeit zurücksetzen</button>
                     <button id="sh-reload" type="button">Angriffe neu laden</button>
+                    <button id="sh-auto-send" type="button">Auto-Senden vorbereiten</button>
                 </div>
                 <div id="sh-status" class="sh-status">Bereit.</div>
                 <div id="sh-commands" class="sh-commands"></div>
@@ -310,20 +374,53 @@
         remember.checked = state.remember;
 
         target.addEventListener('input', () => {
+            disarmAutoSend();
             const timestamp = new Date(target.value).getTime();
             state.targetTime = Number.isFinite(timestamp) ? timestamp : null;
             state.soundPlayed = false;
             saveSettings(); renderTime();
         });
-        ms.addEventListener('input', () => { state.milliseconds = clampInt(ms.value, 0, 999); ms.value = state.milliseconds; state.soundPlayed = false; saveSettings(); renderTime(); });
-        delay.addEventListener('input', () => { state.delay = clampInt(delay.value, -9999, 9999); delay.value = state.delay; state.soundPlayed = false; saveSettings(); renderTime(); });
+        ms.addEventListener('input', () => { disarmAutoSend(); state.milliseconds = clampInt(ms.value, 0, 999); ms.value = state.milliseconds; state.soundPlayed = false; saveSettings(); renderTime(); });
+        delay.addEventListener('input', () => { disarmAutoSend(); state.delay = clampInt(delay.value, -9999, 9999); delay.value = state.delay; state.soundPlayed = false; saveSettings(); renderTime(); });
         remember.addEventListener('change', () => { state.remember = remember.checked; saveSettings(); setStatus(state.remember ? 'Eingaben werden für diese Welt gespeichert.' : 'Gespeicherte Zeitwerte wurden entfernt.', 'ok'); });
         panel.querySelector('#sh-clear').addEventListener('click', event => {
             event.preventDefault();
+            disarmAutoSend();
             state.targetTime = null; state.milliseconds = 0; state.delay = 0; state.soundPlayed = false;
             target.value = ''; ms.value = 0; delay.value = 0; saveSettings(); renderTime(); setStatus('Zielzeit zurückgesetzt.', 'ok');
         });
         panel.querySelector('#sh-reload').addEventListener('click', event => { event.preventDefault(); loadCommands(true); });
+        panel.querySelectorAll('[data-sh-offset]').forEach(button => button.addEventListener('click', event => {
+            event.preventDefault();
+            disarmAutoSend();
+            state.delay = clampInt(button.dataset.shOffset, -9999, 9999);
+            delay.value = state.delay;
+            state.soundPlayed = false;
+            saveSettings(); renderTime();
+            setStatus(state.delay === 0 ? 'Gleichzeitige Ankunft eingestellt.' : `${Math.abs(state.delay / 1000)} Sekunde${Math.abs(state.delay) === 1000 ? '' : 'n'} ${state.delay < 0 ? 'früher' : 'später'} eingestellt.`, 'ok');
+        }));
+        panel.querySelector('#sh-auto-send').addEventListener('click', event => {
+            event.preventDefault();
+            if (state.autoSendArmed) {
+                disarmAutoSend('Auto-Senden wurde abgebrochen.');
+                return;
+            }
+            const send = sendTimestamp();
+            if (!Number.isFinite(send)) {
+                setStatus('Bitte zuerst eine gültige Zielzeit festlegen.', 'error');
+                return;
+            }
+            if (send - serverNow() < 1500) {
+                setStatus('Zum Scharfschalten muss die Absendezeit mindestens 1,5 Sekunden in der Zukunft liegen.', 'error');
+                return;
+            }
+            state.autoSendArmed = true;
+            state.autoSent = false;
+            event.currentTarget.classList.add('armed');
+            event.currentTarget.textContent = 'SCHARF – zum Abbrechen klicken';
+            setStatus(`Auto-Senden ist scharf für ${formatDateTime(send, true)}.`, 'ok');
+            scheduleAutoSend();
+        });
     }
 
     function findVillageId() {
@@ -395,6 +492,9 @@
     function stop() {
         if (state.timer) clearInterval(state.timer);
         state.timer = null;
+        if (state.autoTimer) clearTimeout(state.autoTimer);
+        state.autoTimer = null;
+        state.autoSendArmed = false;
         state.active = false;
         if ($doc) $doc(window.TribalWars).off(TICK_NS);
     }
