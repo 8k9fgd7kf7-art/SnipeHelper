@@ -6,7 +6,7 @@ window.SNIPE_HELPER_CONFIG = {
     breite: null
 };
 
-$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.0.2.js")
+$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.1.0.js")
     .fail(function () {
         if (window.UI?.ErrorMessage) {
             UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden.");
