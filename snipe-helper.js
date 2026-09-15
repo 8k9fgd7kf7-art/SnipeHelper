@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.0.1
+ * Die Stämme – Snipe-Helfer v2.0.2
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet nicht automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.0.1';
+    const VERSION = '2.0.2';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
