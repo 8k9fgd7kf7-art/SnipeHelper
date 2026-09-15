@@ -18,13 +18,14 @@ Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die 
 - verständliche Status- und Fehlermeldungen
 - Synchronisation auf 1 Sekunde vorher, gleichzeitig oder 1 Sekunde später
 - bewusst schaltbares Auto-Senden mit Abbruchmöglichkeit
+- separate Sekundeneingabe für iPhone und andere mobile Browser
 
 ## Installation in der Schnellleiste
 
 Den folgenden vollständigen Code als Schnellleisten-Script eintragen:
 
 ```javascript
-javascript:window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.1.0.js").fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")});
+javascript:window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.1.1.js").fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")});
 ```
 
 Alternativ steht derselbe Loader lesbar in [loader.js](loader.js).
@@ -59,4 +60,4 @@ Bei `breite: null` passt sich die Oberfläche automatisch an. Alternativ kann ei
 
 ## Version
 
-Aktuell: **2.1.0**
+Aktuell: **2.1.1**
