@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.1.0
+ * Die Stämme – Snipe-Helfer v2.1.1
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet nicht automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.1.0';
+    const VERSION = '2.1.1';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
@@ -104,6 +104,12 @@
         if (!Number.isFinite(timestamp)) return '';
         const date = new Date(timestamp);
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function toMinuteInput(timestamp) {
+        if (!Number.isFinite(timestamp)) return '';
+        const date = new Date(timestamp);
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
     function formatDateTime(timestamp, withMs = false) {
@@ -234,8 +240,10 @@
         state.milliseconds = date.getMilliseconds();
         disarmAutoSend();
         const timeInput = document.querySelector('#sh-target');
+        const secondsInput = document.querySelector('#sh-seconds');
         const msInput = document.querySelector('#sh-ms');
-        if (timeInput) timeInput.value = toLocalInput(state.targetTime);
+        if (timeInput) timeInput.value = toMinuteInput(state.targetTime);
+        if (secondsInput) secondsInput.value = date.getSeconds();
         if (msInput) msInput.value = state.milliseconds;
         saveSettings();
         renderTime();
@@ -300,7 +308,7 @@
             #${ROOT_ID} .sh-progress{position:relative;height:26px;margin-bottom:10px;border:1px solid #76511d;border-radius:4px;background:#d7c59c;overflow:hidden}
             #${ROOT_ID} .sh-progress-value{height:100%;width:0;transition:width .04s linear}
             #${ROOT_ID} .sh-clock{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;z-index:1;font-variant-numeric:tabular-nums}
-            #${ROOT_ID} .sh-grid{display:grid;grid-template-columns:minmax(180px,2fr) minmax(90px,1fr) minmax(105px,1fr);gap:8px}
+            #${ROOT_ID} .sh-grid{display:grid;grid-template-columns:minmax(180px,2fr) repeat(3,minmax(70px,1fr));gap:8px}
             #${ROOT_ID} label{display:flex;flex-direction:column;gap:4px;font-weight:700}
             #${ROOT_ID} input{width:100%;min-height:34px;border:1px solid #9d7b47;border-radius:4px;background:#fff;padding:6px;color:#222;font-size:14px}
             #${ROOT_ID} .sh-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
@@ -323,7 +331,7 @@
             #${ROOT_ID} .sh-commands table{width:100%;border-collapse:collapse;background:#fff8e8}
             #${ROOT_ID} .sh-commands th,#${ROOT_ID} .sh-commands td{padding:6px;border:1px solid #c9af7a;text-align:left}
             #${ROOT_ID} .sh-command-row{cursor:pointer}.sh-command-row:hover td{background:#fff1c6}.sh-command-row.selected td{background:#dcefd8!important}
-            @media(max-width:600px){#${ROOT_ID}{max-width:100%;margin:8px 0}#${ROOT_ID} .sh-grid{grid-template-columns:1fr 1fr}#${ROOT_ID} .sh-grid label:first-child{grid-column:1/-1}#${ROOT_ID} .sh-summary{grid-template-columns:1fr}#${ROOT_ID} input,#${ROOT_ID} button{font-size:16px;min-height:42px}#${ROOT_ID} .sh-commands{max-height:210px;overflow:auto}}
+            @media(max-width:600px){#${ROOT_ID}{max-width:100%;margin:8px 0}#${ROOT_ID} .sh-grid{grid-template-columns:1fr 1fr}#${ROOT_ID} .sh-grid label:first-child,#${ROOT_ID} .sh-grid label:last-child{grid-column:1/-1}#${ROOT_ID} .sh-summary{grid-template-columns:1fr}#${ROOT_ID} input,#${ROOT_ID} button{font-size:16px;min-height:42px}#${ROOT_ID} .sh-commands{max-height:210px;overflow:auto}}
         `;
         document.head.appendChild(style);
     }
@@ -337,7 +345,8 @@
             <div class="sh-body">
                 <div class="sh-progress"><div id="sh-progress-value" class="sh-progress-value"></div><div id="sh-clock" class="sh-clock">--:--:--.---</div></div>
                 <div class="sh-grid">
-                    <label>Ankunftszeit<input id="sh-target" type="datetime-local" step="1" max="9999-12-31T23:59:59"></label>
+                    <label>Datum und Uhrzeit<input id="sh-target" type="datetime-local" step="60" max="9999-12-31T23:59"></label>
+                    <label>Sekunden<input id="sh-seconds" type="number" min="0" max="59" step="1" inputmode="numeric"></label>
                     <label>Millisekunden<input id="sh-ms" type="number" min="0" max="999" step="1" inputmode="numeric"></label>
                     <label>Korrektur (ms)<input id="sh-delay" type="number" min="-9999" max="9999" step="1" inputmode="numeric"></label>
                 </div>
@@ -364,21 +373,37 @@
 
     function bindInputs(panel) {
         const target = panel.querySelector('#sh-target');
+        const seconds = panel.querySelector('#sh-seconds');
         const ms = panel.querySelector('#sh-ms');
         const delay = panel.querySelector('#sh-delay');
         const remember = panel.querySelector('#sh-remember');
 
-        target.value = toLocalInput(state.targetTime);
+        target.value = toMinuteInput(state.targetTime);
+        seconds.value = Number.isFinite(state.targetTime) ? new Date(state.targetTime).getSeconds() : 0;
         ms.value = state.milliseconds;
         delay.value = state.delay;
         remember.checked = state.remember;
 
         target.addEventListener('input', () => {
             disarmAutoSend();
-            const timestamp = new Date(target.value).getTime();
-            state.targetTime = Number.isFinite(timestamp) ? timestamp : null;
+            const date = new Date(target.value);
+            if (Number.isFinite(date.getTime())) {
+                date.setSeconds(clampInt(seconds.value, 0, 59), 0);
+                state.targetTime = date.getTime();
+            } else state.targetTime = null;
             state.soundPlayed = false;
             saveSettings(); renderTime();
+        });
+        seconds.addEventListener('input', () => {
+            disarmAutoSend();
+            const value = clampInt(seconds.value, 0, 59);
+            seconds.value = value;
+            if (Number.isFinite(state.targetTime)) {
+                const date = new Date(state.targetTime);
+                date.setSeconds(value, 0);
+                state.targetTime = date.getTime();
+            }
+            state.soundPlayed = false; saveSettings(); renderTime();
         });
         ms.addEventListener('input', () => { disarmAutoSend(); state.milliseconds = clampInt(ms.value, 0, 999); ms.value = state.milliseconds; state.soundPlayed = false; saveSettings(); renderTime(); });
         delay.addEventListener('input', () => { disarmAutoSend(); state.delay = clampInt(delay.value, -9999, 9999); delay.value = state.delay; state.soundPlayed = false; saveSettings(); renderTime(); });
@@ -387,7 +412,7 @@
             event.preventDefault();
             disarmAutoSend();
             state.targetTime = null; state.milliseconds = 0; state.delay = 0; state.soundPlayed = false;
-            target.value = ''; ms.value = 0; delay.value = 0; saveSettings(); renderTime(); setStatus('Zielzeit zurückgesetzt.', 'ok');
+            target.value = ''; seconds.value = 0; ms.value = 0; delay.value = 0; saveSettings(); renderTime(); setStatus('Zielzeit zurückgesetzt.', 'ok');
         });
         panel.querySelector('#sh-reload').addEventListener('click', event => { event.preventDefault(); loadCommands(true); });
         panel.querySelectorAll('[data-sh-offset]').forEach(button => button.addEventListener('click', event => {
