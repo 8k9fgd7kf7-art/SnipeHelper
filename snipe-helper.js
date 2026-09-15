@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.0
+ * Die Stämme – Snipe-Helfer v2.0.1
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet nicht automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.0.0';
+    const VERSION = '2.0.1';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
@@ -235,7 +235,7 @@
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = `
-            #${ROOT_ID}{box-sizing:border-box;width:100%;max-width:${config.breite ? `${Number(config.breite)}px` : '760px'};margin:12px 0;border:1px solid #7d510f;border-radius:6px;background:#f4e4bc;color:#3b2a16;box-shadow:0 2px 6px rgba(0,0,0,.18);font:13px Arial,sans-serif;overflow:hidden}
+            #${ROOT_ID}{box-sizing:border-box;width:100%;max-width:${config.breite ? `${Number(config.breite)}px` : '520px'};margin:12px 0;border:1px solid #7d510f;border-radius:6px;background:#f4e4bc;color:#3b2a16;box-shadow:0 2px 6px rgba(0,0,0,.18);font:13px Arial,sans-serif;overflow:hidden}
             #${ROOT_ID} *{box-sizing:border-box}
             #${ROOT_ID} .sh-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:linear-gradient(#c9a363,#9c6b28);color:#fff;font-weight:700}
             #${ROOT_ID} .sh-version{font-size:11px;opacity:.8}
@@ -253,7 +253,7 @@
             #${ROOT_ID} .sh-countdown{margin-top:9px;padding:9px;border-radius:4px;text-align:center;font-size:15px;font-weight:700}
             #${ROOT_ID} .sh-countdown.waiting{background:#fff0cb;color:#865308}.sh-countdown.ready{background:#d8f0d6;color:#145c19}.sh-countdown.late{background:#f6d3cf;color:#9c1710}.sh-countdown.neutral{background:#e7dfcc;color:#66573e}
             #${ROOT_ID} .sh-options{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px}
-            #${ROOT_ID} .sh-check{display:flex;flex-direction:row;align-items:center;gap:6px;font-weight:400}.sh-check input{width:18px;height:18px;min-height:0}
+            #${ROOT_ID} .sh-check{display:flex;flex-direction:row;align-items:center;gap:6px;font-weight:400}#${ROOT_ID} .sh-check input{flex:0 0 18px;width:18px;height:18px;min-height:0;padding:0}
             #${ROOT_ID} button{min-height:34px;border:1px solid #654315;border-radius:4px;background:linear-gradient(#d7b36c,#aa762e);color:#fff;padding:6px 12px;font-weight:700;cursor:pointer;touch-action:manipulation}
             #${ROOT_ID} button:hover{filter:brightness(1.08)}
             #${ROOT_ID} .sh-status{margin-top:7px;min-height:16px;color:#70552e}.sh-status.ok{color:#246b28}.sh-status.error{color:#a01912}
@@ -292,7 +292,9 @@
                 <div id="sh-status" class="sh-status">Bereit.</div>
                 <div id="sh-commands" class="sh-commands"></div>
             </div>`;
-        anchor.insertAdjacentElement('afterend', panel);
+        const commandTable = anchor.closest('table');
+        if (commandTable) commandTable.insertAdjacentElement('afterend', panel);
+        else anchor.insertAdjacentElement('afterend', panel);
         return panel;
     }
 
