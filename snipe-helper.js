@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.1.1
+ * Die Stämme – Snipe-Helfer v2.1.2
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet nicht automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.1.1';
+    const VERSION = '2.1.2';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
@@ -33,6 +33,7 @@
         targetTime: null,
         milliseconds: 0,
         delay: 0,
+        sendCorrection: 150,
         remember: false,
         duration: 0,
         timer: null,
@@ -62,7 +63,7 @@
     }
 
     function loadSettings() {
-        const fallback = { version: VERSION, remember: false, targetTime: null, milliseconds: 0, delay: 0 };
+        const fallback = { version: VERSION, remember: false, targetTime: null, milliseconds: 0, delay: 0, sendCorrection: 150 };
         try {
             const parsed = JSON.parse(localStorage.getItem(storageKey) || 'null');
             if (!parsed || typeof parsed !== 'object') return fallback;
@@ -71,7 +72,8 @@
                 remember: Boolean(parsed.remember),
                 targetTime: Number.isFinite(Number(parsed.targetTime)) ? Number(parsed.targetTime) : null,
                 milliseconds: clampInt(parsed.milliseconds, 0, 999),
-                delay: clampInt(parsed.delay, -9999, 9999)
+                delay: clampInt(parsed.delay, -9999, 9999),
+                sendCorrection: clampInt(parsed.sendCorrection, 0, 2000, 150)
             };
         } catch (error) {
             console.warn('[Snipe-Helfer] Gespeicherte Einstellungen waren beschädigt.', error);
@@ -85,7 +87,8 @@
             remember: state.remember,
             targetTime: state.remember ? state.targetTime : null,
             milliseconds: state.remember ? state.milliseconds : 0,
-            delay: state.remember ? state.delay : 0
+            delay: state.remember ? state.delay : 0,
+            sendCorrection: state.remember ? state.sendCorrection : 150
         };
         try { localStorage.setItem(storageKey, JSON.stringify(payload)); }
         catch (error) { console.warn('[Snipe-Helfer] Einstellungen konnten nicht gespeichert werden.', error); }
@@ -174,7 +177,7 @@
 
     function sendTimestamp() {
         const target = effectiveTarget();
-        return target === null ? null : target - state.duration;
+        return target === null ? null : target - state.duration + state.sendCorrection;
     }
 
     function disarmAutoSend(message = '') {
@@ -331,7 +334,7 @@
             #${ROOT_ID} .sh-commands table{width:100%;border-collapse:collapse;background:#fff8e8}
             #${ROOT_ID} .sh-commands th,#${ROOT_ID} .sh-commands td{padding:6px;border:1px solid #c9af7a;text-align:left}
             #${ROOT_ID} .sh-command-row{cursor:pointer}.sh-command-row:hover td{background:#fff1c6}.sh-command-row.selected td{background:#dcefd8!important}
-            @media(max-width:600px){#${ROOT_ID}{max-width:100%;margin:8px 0}#${ROOT_ID} .sh-grid{grid-template-columns:1fr 1fr}#${ROOT_ID} .sh-grid label:first-child,#${ROOT_ID} .sh-grid label:last-child{grid-column:1/-1}#${ROOT_ID} .sh-summary{grid-template-columns:1fr}#${ROOT_ID} input,#${ROOT_ID} button{font-size:16px;min-height:42px}#${ROOT_ID} .sh-commands{max-height:210px;overflow:auto}}
+            @media(max-width:600px){#${ROOT_ID}{max-width:100%;margin:8px 0}#${ROOT_ID} .sh-grid{grid-template-columns:1fr 1fr}#${ROOT_ID} .sh-grid label:first-child,#${ROOT_ID} .sh-grid .sh-wide-mobile{grid-column:1/-1}#${ROOT_ID} .sh-summary{grid-template-columns:1fr}#${ROOT_ID} input,#${ROOT_ID} button{font-size:16px;min-height:42px}#${ROOT_ID} .sh-commands{max-height:210px;overflow:auto}}
         `;
         document.head.appendChild(style);
     }
@@ -348,7 +351,8 @@
                     <label>Datum und Uhrzeit<input id="sh-target" type="datetime-local" step="60" max="9999-12-31T23:59"></label>
                     <label>Sekunden<input id="sh-seconds" type="number" min="0" max="59" step="1" inputmode="numeric"></label>
                     <label>Millisekunden<input id="sh-ms" type="number" min="0" max="999" step="1" inputmode="numeric"></label>
-                    <label>Korrektur (ms)<input id="sh-delay" type="number" min="-9999" max="9999" step="1" inputmode="numeric"></label>
+                    <label class="sh-wide-mobile">Versatz zum Angriff (ms)<input id="sh-delay" type="number" min="-9999" max="9999" step="1" inputmode="numeric"></label>
+                    <label class="sh-wide-mobile">Sendeausgleich (ms)<input id="sh-send-correction" type="number" min="0" max="2000" step="10" inputmode="numeric"></label>
                 </div>
                 <div class="sh-sync"><strong>Ankunft relativ zum gewählten Angriff:</strong><button type="button" data-sh-offset="-1000">1 s vorher</button><button type="button" data-sh-offset="0">Gleichzeitig</button><button type="button" data-sh-offset="1000">1 s später</button></div>
                 <div class="sh-summary">
@@ -376,12 +380,14 @@
         const seconds = panel.querySelector('#sh-seconds');
         const ms = panel.querySelector('#sh-ms');
         const delay = panel.querySelector('#sh-delay');
+        const sendCorrection = panel.querySelector('#sh-send-correction');
         const remember = panel.querySelector('#sh-remember');
 
         target.value = toMinuteInput(state.targetTime);
         seconds.value = Number.isFinite(state.targetTime) ? new Date(state.targetTime).getSeconds() : 0;
         ms.value = state.milliseconds;
         delay.value = state.delay;
+        sendCorrection.value = state.sendCorrection;
         remember.checked = state.remember;
 
         target.addEventListener('input', () => {
@@ -407,12 +413,13 @@
         });
         ms.addEventListener('input', () => { disarmAutoSend(); state.milliseconds = clampInt(ms.value, 0, 999); ms.value = state.milliseconds; state.soundPlayed = false; saveSettings(); renderTime(); });
         delay.addEventListener('input', () => { disarmAutoSend(); state.delay = clampInt(delay.value, -9999, 9999); delay.value = state.delay; state.soundPlayed = false; saveSettings(); renderTime(); });
+        sendCorrection.addEventListener('input', () => { disarmAutoSend(); state.sendCorrection = clampInt(sendCorrection.value, 0, 2000, 150); sendCorrection.value = state.sendCorrection; state.soundPlayed = false; saveSettings(); renderTime(); });
         remember.addEventListener('change', () => { state.remember = remember.checked; saveSettings(); setStatus(state.remember ? 'Eingaben werden für diese Welt gespeichert.' : 'Gespeicherte Zeitwerte wurden entfernt.', 'ok'); });
         panel.querySelector('#sh-clear').addEventListener('click', event => {
             event.preventDefault();
             disarmAutoSend();
             state.targetTime = null; state.milliseconds = 0; state.delay = 0; state.soundPlayed = false;
-            target.value = ''; seconds.value = 0; ms.value = 0; delay.value = 0; saveSettings(); renderTime(); setStatus('Zielzeit zurückgesetzt.', 'ok');
+            target.value = ''; seconds.value = 0; ms.value = 0; delay.value = 0; state.delay = 0; saveSettings(); renderTime(); setStatus('Zielzeit zurückgesetzt.', 'ok');
         });
         panel.querySelector('#sh-reload').addEventListener('click', event => { event.preventDefault(); loadCommands(true); });
         panel.querySelectorAll('[data-sh-offset]').forEach(button => button.addEventListener('click', event => {
@@ -536,6 +543,7 @@
         state.targetTime = state.remember ? state.settings.targetTime : null;
         state.milliseconds = state.remember ? state.settings.milliseconds : 0;
         state.delay = state.remember ? state.settings.delay : 0;
+        state.sendCorrection = state.remember ? state.settings.sendCorrection : 150;
         state.duration = getDuration();
         createStyles();
         const panel = createPanel(arrivalBox);
