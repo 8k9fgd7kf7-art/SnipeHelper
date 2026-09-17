@@ -30,7 +30,7 @@ Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die 
 Den folgenden vollständigen Code als Schnellleisten-Script eintragen:
 
 ```javascript
-javascript:(async function(){const r="8k9fgd7kf7-art/SnipeHelper",b="releases/snipe-helper-v2.2.0.js";let f=b;window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};try{const x=await fetch("https://raw.githubusercontent.com/"+r+"/main/latest.json?t="+Date.now(),{cache:"no-store"});if(!x.ok)throw new Error();const m=await x.json();if(m&&/^releases\\/snipe-helper-v\\d+\\.\\d+\\.\\d+\\.js$/.test(m.file))f=m.file}catch(e){}$.getScript("https://cdn.jsdelivr.net/gh/"+r+"@main/"+f).fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")})})();
+javascript:(async function(){const r="8k9fgd7kf7-art/SnipeHelper",b="releases/snipe-helper-v2.2.0.js";let f=b;window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};try{const x=await fetch("https://raw.githubusercontent.com/"+r+"/main/latest.json?t="+Date.now(),{cache:"no-store"});if(!x.ok)throw new Error();const m=await x.json();if(m&&/^releases\/snipe-helper-v\d+\.\d+\.\d+\.js$/.test(m.file))f=m.file}catch(e){}$.getScript("https://cdn.jsdelivr.net/gh/"+r+"@main/"+f).fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")})})();
 ```
 
 Alternativ steht derselbe Loader lesbar in [loader.js](loader.js). Der Schnellleistencode muss bei künftigen Releases nicht mehr ausgetauscht werden.
@@ -41,12 +41,13 @@ Alternativ steht derselbe Loader lesbar in [loader.js](loader.js). Der Schnellle
 2. Den SnipeHelper über die Schnellleiste starten.
 3. Die gewünschte Ankunftszeit manuell eintragen oder einen laufenden Befehl aus der eingeblendeten Liste auswählen.
 4. Millisekunden und gegebenenfalls eine persönliche Timing-Korrektur einstellen.
-5. Den normalen Bestätigen-Button zum angezeigten Zeitpunkt selbst betätigen.
+5. Auto-Senden bewusst scharfschalten oder zum angezeigten Zeitpunkt manuell bestätigen.
 
 ## Dateien
 
 - `snipe-helper.js` – vollständiges Script
-- `loader.js` – dauerhafter, konfigurierbarer Schnellleisten-Loader\n- `latest.json` – Verweis auf die aktuell veröffentlichte Release-Datei
+- `loader.js` – dauerhafter, konfigurierbarer Schnellleisten-Loader
+- `latest.json` – Verweis auf die aktuell veröffentlichte Release-Datei
 
 ## Optionale Farben und Breite
 
