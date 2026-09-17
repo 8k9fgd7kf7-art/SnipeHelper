@@ -2,7 +2,7 @@
 
 Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die Stämme**.
 
-> Das Script berechnet und visualisiert den Absendezeitpunkt. Es sendet keinen Angriff automatisch.
+> Das Script berechnet und visualisiert den Absendezeitpunkt und sendet nur nach bewusster Scharfschaltung automatisch.
 
 ## Funktionen
 
@@ -30,10 +30,10 @@ Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die 
 Den folgenden vollständigen Code als Schnellleisten-Script eintragen:
 
 ```javascript
-javascript:window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};$.getScript("https://cdn.jsdelivr.net/gh/8k9fgd7kf7-art/SnipeHelper@main/releases/snipe-helper-v2.2.0.js").fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")});
+javascript:(async function(){const r="8k9fgd7kf7-art/SnipeHelper",b="releases/snipe-helper-v2.2.0.js";let f=b;window.SNIPE_HELPER_CONFIG={zielFarbe:"green",warteFarbe:"#ff9933",ohneDatumFarbe:"green",breite:null};try{const x=await fetch("https://raw.githubusercontent.com/"+r+"/main/latest.json?t="+Date.now(),{cache:"no-store"});if(!x.ok)throw new Error();const m=await x.json();if(m&&/^releases\\/snipe-helper-v\\d+\\.\\d+\\.\\d+\\.js$/.test(m.file))f=m.file}catch(e){}$.getScript("https://cdn.jsdelivr.net/gh/"+r+"@main/"+f).fail(function(){window.UI?.ErrorMessage?UI.ErrorMessage("Der Snipe-Helfer konnte nicht geladen werden."):alert("Der Snipe-Helfer konnte nicht geladen werden.")})})();
 ```
 
-Alternativ steht derselbe Loader lesbar in [loader.js](loader.js).
+Alternativ steht derselbe Loader lesbar in [loader.js](loader.js). Der Schnellleistencode muss bei künftigen Releases nicht mehr ausgetauscht werden.
 
 ## Bedienung
 
@@ -46,7 +46,7 @@ Alternativ steht derselbe Loader lesbar in [loader.js](loader.js).
 ## Dateien
 
 - `snipe-helper.js` – vollständiges Script
-- `loader.js` – konfigurierbarer Schnellleisten-Loader
+- `loader.js` – dauerhafter, konfigurierbarer Schnellleisten-Loader\n- `latest.json` – Verweis auf die aktuell veröffentlichte Release-Datei
 
 ## Optionale Farben und Breite
 
