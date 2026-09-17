@@ -24,6 +24,10 @@ Ein moderner, deutschsprachiger Timing-Helfer für das manuelle Snipen in **Die 
 - plausible vorausgefüllte Ankunftszeit ohne gespeicherten Wert
 - kompakte relative Ankunft in einer Reihe
 - einklappbare laufende Angriffe und erweiterte Einstellungen
+- Countdown und Scharf-Status direkt im Browser-Tab
+- kompakte Bereitschaftsansicht nach dem Scharfschalten
+- sichere Zielzeit-Synchronisierung zwischen mehreren Tabs
+- Übersicht aller verbundenen Tabs mit Dorf, Ziel, Versatz, Absendezeit und Status
 
 ## Installation in der Schnellleiste
 
@@ -42,6 +46,16 @@ Alternativ steht derselbe Loader lesbar in [loader.js](loader.js). Der Schnellle
 3. Die gewünschte Ankunftszeit manuell eintragen oder einen laufenden Befehl aus der eingeblendeten Liste auswählen.
 4. Millisekunden und gegebenenfalls eine persönliche Timing-Korrektur einstellen.
 5. Auto-Senden bewusst scharfschalten oder zum angezeigten Zeitpunkt manuell bestätigen.
+
+## Mehrere Tabs vorbereiten
+
+1. Den SnipeHelper in allen gewünschten Bestätigungs-Tabs starten.
+2. In einem Tab die Zielzeit festlegen.
+3. **Verbundene Tabs** öffnen und **Zielzeit an Tabs senden** wählen.
+4. Die Zielzeit wird nur von noch nicht scharfgeschalteten Tabs übernommen und passend zur jeweiligen Laufzeit berechnet.
+5. Jeden Tab einzeln prüfen und scharfschalten. Bereits scharfe Tabs werden niemals überschrieben.
+
+Der Tab-Verbund funktioniert nur zwischen geöffneten Tabs derselben Spielwelt. Mobile Browser können Hintergrund-Tabs zeitweise anhalten; für mehrere gleichzeitig vorbereitete Angriffe ist deshalb ein Desktop-Browser zuverlässiger.
 
 ## Dateien
 
@@ -66,4 +80,4 @@ Bei `breite: null` passt sich die Oberfläche automatisch an. Alternativ kann ei
 
 ## Version
 
-Aktuell: **2.2.0**
+Aktuell: **2.3.0**
