@@ -1,5 +1,5 @@
 /*
- * Die Stämme – Snipe-Helfer v2.2.0
+ * Die Stämme – Snipe-Helfer v2.3.0
  * Moderne, deutschsprachige Neufassung des Bottenkraker-Snipe-Helfers.
  * Das Script berechnet und visualisiert den Absendezeitpunkt und sendet nur nach bewusster Scharfschaltung automatisch.
  *
@@ -15,7 +15,7 @@
 (async function snipeHelferV2() {
     'use strict';
 
-    const VERSION = '2.2.0';
+    const VERSION = '2.3.0';
     const ROOT_ID = 'snipe-helper-v2';
     const STYLE_ID = 'snipe-helper-v2-style';
     const TICK_NS = '.snipeHelperV2';
@@ -44,7 +44,14 @@
         active: false,
         soundPlayed: false,
         selectedRow: null,
-        settings: null
+        settings: null,
+        originalTitle: document.title,
+        tabId: null,
+        channel: null,
+        storageHandler: null,
+        syncTimer: null,
+        peers: new Map(),
+        lastBroadcast: 0
     };
 
     const $doc = window.jQuery;
@@ -186,17 +193,158 @@
         return target === null ? null : target - state.duration + state.sendCorrection;
     }
 
+    function formatTimeOnly(timestamp) {
+        if (!Number.isFinite(timestamp)) return '—';
+        const date = new Date(timestamp);
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+    }
+
+    function getCommandMeta() {
+        const targetText = document.querySelector('#command-data-form .village_anchor, #command-data-form a[href*="screen=info_village"]')?.textContent || '—';
+        const targetCoord = targetText.match(/\d+\|\d+/)?.[0] || targetText.replace(/\s+/g, ' ').trim().slice(0, 24) || '—';
+        const sourceCoord = window.game_data?.village?.coord || window.game_data?.village?.id || 'dieses Dorf';
+        return { source: String(sourceCoord), target: targetCoord };
+    }
+
+    function getTabSnapshot() {
+        const meta = getCommandMeta();
+        const target = effectiveTarget();
+        const send = sendTimestamp();
+        return {
+            tabId: state.tabId,
+            source: meta.source,
+            target: meta.target,
+            offset: state.delay,
+            targetTime: target,
+            sendTime: send,
+            status: state.autoSendArmed ? 'SCHARF' : Number.isFinite(send) ? 'Bereit' : 'Keine Zeit',
+            updatedAt: Date.now()
+        };
+    }
+
+    function sendTabMessage(message) {
+        const payload = Object.assign({ world, sender: state.tabId, sentAt: Date.now() }, message);
+        if (state.channel) state.channel.postMessage(payload);
+        else {
+            try {
+                localStorage.setItem(`${world}:snipe-helper:bus`, JSON.stringify(Object.assign({ nonce: Math.random() }, payload)));
+            } catch (_) { /* Tab-Verbund ist optional. */ }
+        }
+    }
+
+    function renderTabs() {
+        const container = document.querySelector('#sh-tabs-table');
+        const summary = document.querySelector('#sh-tabs-summary');
+        if (!container || !summary) return;
+
+        const cutoff = Date.now() - 7000;
+        for (const [id, peer] of state.peers) if (!peer || peer.updatedAt < cutoff) state.peers.delete(id);
+        const snapshots = [getTabSnapshot(), ...[...state.peers.values()].filter(peer => peer.tabId !== state.tabId)]
+            .sort((a, b) => String(a.source).localeCompare(String(b.source), undefined, { numeric: true }));
+        summary.textContent = `Verbundene Tabs (${snapshots.length})`;
+
+        const table = document.createElement('table');
+        const head = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Dorf', 'Ziel', 'Versatz', 'Absenden', 'Status'].forEach(label => {
+            const th = document.createElement('th'); th.textContent = label; headRow.appendChild(th);
+        });
+        head.appendChild(headRow); table.appendChild(head);
+        const body = document.createElement('tbody');
+        snapshots.forEach(snapshot => {
+            const row = document.createElement('tr');
+            if (snapshot.tabId === state.tabId) row.classList.add('sh-tab-current');
+            const values = [snapshot.source, snapshot.target, `${snapshot.offset > 0 ? '+' : ''}${snapshot.offset} ms`, formatTimeOnly(snapshot.sendTime), snapshot.status];
+            values.forEach((value, index) => {
+                const td = document.createElement('td'); td.textContent = value;
+                if (index === 4 && snapshot.status === 'SCHARF') td.classList.add('sh-tab-armed');
+                row.appendChild(td);
+            });
+            body.appendChild(row);
+        });
+        table.appendChild(body);
+        container.replaceChildren(table);
+    }
+
+    function broadcastStatus(force = false) {
+        const now = Date.now();
+        if (!force && now - state.lastBroadcast < 1000) return;
+        state.lastBroadcast = now;
+        const snapshot = getTabSnapshot();
+        state.peers.set(state.tabId, snapshot);
+        sendTabMessage({ type: 'status', snapshot });
+        renderTabs();
+    }
+
+    function handleTabMessage(message) {
+        if (!message || message.world !== world || message.sender === state.tabId) return;
+        if (message.type === 'status' && message.snapshot?.tabId) {
+            state.peers.set(message.snapshot.tabId, message.snapshot);
+            renderTabs();
+            return;
+        }
+        if (message.type !== 'sync-target') return;
+        const sharedTarget = Number(message.targetTime);
+        if (!Number.isFinite(sharedTarget)) return;
+        if (state.autoSendArmed) {
+            setStatus('Geteilte Zielzeit nicht übernommen: Dieser Tab ist bereits scharf.', 'error');
+            return;
+        }
+        const candidateSend = sharedTarget - state.duration + state.sendCorrection;
+        if (candidateSend - serverNow() < 1500) {
+            setStatus('Geteilte Zielzeit ist für die Laufzeit dieses Tabs zu früh.', 'error');
+            return;
+        }
+        const delayInput = document.querySelector('#sh-delay');
+        if (delayInput) {
+            delayInput.value = 0;
+            delayInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } else state.delay = 0;
+        setTarget(sharedTarget, 'Geteilte Zielzeit');
+        broadcastStatus(true);
+    }
+
+    function initTabSync() {
+        window.__snipeHelperTabId = window.__snipeHelperTabId || (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+        state.tabId = window.__snipeHelperTabId;
+
+        if (typeof BroadcastChannel === 'function') {
+            state.channel = new BroadcastChannel(`${world}:snipe-helper-tabs`);
+            state.channel.addEventListener('message', event => handleTabMessage(event.data));
+        } else {
+            state.storageHandler = event => {
+                if (event.key !== `${world}:snipe-helper:bus` || !event.newValue) return;
+                try { handleTabMessage(JSON.parse(event.newValue)); } catch (_) { /* Fremde Daten ignorieren. */ }
+            };
+            window.addEventListener('storage', state.storageHandler);
+        }
+        state.syncTimer = setInterval(() => broadcastStatus(true), 2000);
+        broadcastStatus(true);
+    }
+
+    function cleanupTabSync() {
+        if (state.syncTimer) clearInterval(state.syncTimer);
+        state.syncTimer = null;
+        state.channel?.close?.();
+        state.channel = null;
+        if (state.storageHandler) window.removeEventListener('storage', state.storageHandler);
+        state.storageHandler = null;
+        state.peers.clear();
+    }
+
     function disarmAutoSend(message = '') {
         state.autoSendArmed = false;
         state.autoSent = false;
         if (state.autoTimer) clearTimeout(state.autoTimer);
         state.autoTimer = null;
         const button = document.querySelector('#sh-auto-send');
+        document.getElementById(ROOT_ID)?.classList.remove('compact');
         if (button) {
             button.classList.remove('armed');
             button.textContent = 'Auto-Senden vorbereiten';
         }
         if (message) setStatus(message);
+        broadcastStatus(true);
     }
 
     function performAutoSend() {
@@ -209,6 +357,7 @@
         }
         state.autoSent = true;
         state.autoSendArmed = false;
+        document.title = 'GESENDET · SnipeHelper';
         console.log(`[Snipe-Helfer] Automatisch ausgelöst bei ${Math.round(serverNow()) % 1000} ms Serverzeit.`);
         setStatus('Angriff wurde automatisch ausgelöst.', 'ok');
         submit.click();
@@ -286,7 +435,8 @@
             countdownEl.className = 'sh-countdown neutral';
             bar.style.width = `${(now % 1000) / 10}%`;
             bar.style.background = config.ohneDatumFarbe;
-            document.title = document.title.replace(/^Absenden in: .*? \| /, '');
+            document.title = state.originalTitle;
+            broadcastStatus();
             return;
         }
 
@@ -296,12 +446,13 @@
         bar.style.width = `${(now % 1000) / 10}%`;
         bar.style.background = remaining >= 0 && remaining <= 1000 ? config.zielFarbe : config.warteFarbe;
 
-        if (remaining >= 0) document.title = `Absenden in: ${formatCountdown(remaining)} | Die Stämme`;
+        if (remaining >= 0) document.title = state.autoSendArmed ? `SCHARF · ${formatCountdown(remaining)} · SnipeHelper` : `Bereit · ${formatCountdown(remaining)} · SnipeHelper`;
         if (remaining <= 5000 && remaining > 4000 && !state.soundPlayed) {
             try { window.TribalWars?.playSound?.('chat'); } catch (_) { /* Ton ist optional. */ }
             state.soundPlayed = true;
         }
         if (remaining > 5000) state.soundPlayed = false;
+        broadcastStatus();
     }
 
     function createStyles() {
@@ -350,6 +501,14 @@
             #${ROOT_ID} .sh-commands table{width:100%;border-collapse:collapse;background:#fff8e8}
             #${ROOT_ID} .sh-commands th,#${ROOT_ID} .sh-commands td{padding:6px;border:1px solid #c9af7a;text-align:left}
             #${ROOT_ID} .sh-command-row{cursor:pointer}.sh-command-row:hover td{background:#fff1c6}.sh-command-row.selected td{background:#dcefd8!important}
+            #${ROOT_ID} .sh-tabs-table{margin-top:6px;overflow:auto}
+            #${ROOT_ID} .sh-tabs-table table{width:100%;border-collapse:collapse;background:#fff8e8;font-size:11px}
+            #${ROOT_ID} .sh-tabs-table th,#${ROOT_ID} .sh-tabs-table td{padding:4px;border:1px solid #c9af7a;text-align:left;white-space:nowrap}
+            #${ROOT_ID} .sh-tab-armed{color:#9c1710;font-weight:700}
+            #${ROOT_ID} .sh-tab-current{background:#f1dfb4}
+            #${ROOT_ID}.compact .sh-grid,#${ROOT_ID}.compact .sh-sync,#${ROOT_ID}.compact .sh-selected,#${ROOT_ID}.compact .sh-details{display:none}
+            #${ROOT_ID}.compact .sh-body{padding:6px}
+            #${ROOT_ID}.compact .sh-main-action{margin-top:6px}
             @media(max-width:600px){#${ROOT_ID}{max-width:100%;margin:6px 0}#${ROOT_ID} .sh-grid{grid-template-columns:1fr 1fr}#${ROOT_ID} .sh-grid label:first-child,#${ROOT_ID} .sh-grid .sh-wide-mobile{grid-column:1/-1}#${ROOT_ID} .sh-field-label{min-height:18px}#${ROOT_ID} .sh-summary{grid-template-columns:1fr}#${ROOT_ID} input{font-size:16px;height:40px}#${ROOT_ID} button{font-size:14px;min-height:38px}#${ROOT_ID} .sh-sync{display:block}#${ROOT_ID} .sh-sync-buttons{margin-top:5px;justify-content:stretch}#${ROOT_ID} .sh-sync button{flex:1;min-width:0;padding:3px 4px;font-size:13px}#${ROOT_ID} .sh-advanced{display:grid;grid-template-columns:1fr}#${ROOT_ID} .sh-commands{max-height:210px;overflow:auto}}
         `;
         document.head.appendChild(style);
@@ -378,6 +537,7 @@
                 <div class="sh-main-action"><button id="sh-auto-send" type="button">Auto-Senden vorbereiten</button></div>
                 <div id="sh-selected-command" class="sh-selected" hidden></div>
                 <details id="sh-command-details" class="sh-details"><summary id="sh-command-summary">Laufende Angriffe</summary><div class="sh-details-body"><button id="sh-reload" type="button">Angriffe neu laden</button><div id="sh-commands" class="sh-commands"></div></div></details>
+                <details id="sh-tabs-details" class="sh-details"><summary id="sh-tabs-summary">Verbundene Tabs (1)</summary><div class="sh-details-body"><button id="sh-share-target" type="button">Zielzeit an Tabs senden</button><div id="sh-tabs-table" class="sh-tabs-table"></div></div></details>
                 <details class="sh-details"><summary>Erweiterte Einstellungen</summary><div class="sh-details-body sh-advanced"><label><span class="sh-field-label">Sendeausgleich (ms)</span><input id="sh-send-correction" type="number" min="0" max="2000" step="10" inputmode="numeric"></label><label class="sh-check"><input id="sh-remember" type="checkbox"> Eingaben merken</label><button id="sh-clear" type="button">Zeit zurücksetzen</button></div></details>
                 <div id="sh-status" class="sh-status">Bereit.</div>
             </div>`;
@@ -439,6 +599,17 @@
             target.value = toMinuteInput(state.targetTime); seconds.value = new Date(state.targetTime).getSeconds(); ms.value = 0; delay.value = 0; updateOffsetButtons(); saveSettings(); renderTime(); setStatus('Zielzeit wurde auf den nächsten sinnvollen Zeitpunkt gesetzt.', 'ok');
         });
         panel.querySelector('#sh-reload').addEventListener('click', event => { event.preventDefault(); loadCommands(true); });
+        panel.querySelector('#sh-share-target').addEventListener('click', event => {
+            event.preventDefault();
+            const targetTime = effectiveTarget();
+            if (!Number.isFinite(targetTime)) {
+                setStatus('Es gibt keine gültige Zielzeit zum Verteilen.', 'error');
+                return;
+            }
+            sendTabMessage({ type: 'sync-target', targetTime });
+            setStatus(`Zielzeit ${formatDateTime(targetTime, true)} wurde an die verbundenen Tabs gesendet.`, 'ok');
+            broadcastStatus(true);
+        });
         offsetButtons.forEach(button => button.addEventListener('click', event => {
             event.preventDefault();
             disarmAutoSend();
@@ -466,9 +637,11 @@
             }
             state.autoSendArmed = true;
             state.autoSent = false;
+            panel.classList.add('compact');
             event.currentTarget.classList.add('armed');
             event.currentTarget.textContent = 'SCHARF – zum Abbrechen klicken';
             setStatus(`Auto-Senden ist scharf für ${formatDateTime(send, true)}.`, 'ok');
+            broadcastStatus(true);
             scheduleAutoSend();
         });
     }
@@ -560,6 +733,8 @@
         state.autoTimer = null;
         state.autoSendArmed = false;
         state.active = false;
+        cleanupTabSync();
+        document.title = state.originalTitle;
         if ($doc) $doc(window.TribalWars).off(TICK_NS);
     }
 
@@ -580,6 +755,7 @@
         createStyles();
         const panel = createPanel(arrivalBox);
         bindInputs(panel);
+        initTabSync();
         renderTime();
         await loadCommands(false);
 
